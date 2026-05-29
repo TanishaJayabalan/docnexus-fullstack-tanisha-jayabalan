@@ -93,7 +93,7 @@ export function Sidebar() {
       </nav>
 
       <div className="space-y-1 border-t border-border p-2">
-        <SidebarButton icon={Settings} label="Settings" isCollapsed={isCollapsed} />
+        
         <SidebarButton
           icon={theme === "light" ? Moon : Sun}
           label={theme === "light" ? "Dark mode" : "Light mode"}
