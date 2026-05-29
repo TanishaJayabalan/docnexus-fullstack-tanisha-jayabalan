@@ -93,8 +93,8 @@ export default function CampaignBuilder() {
     async function loadPhysicians() {
       setLoading(true);
       try {
-        const data = await getPhysicians();
-        setAllPhysicians(data);
+        const res = await getPhysicians();
+        setAllPhysicians(res.data);
         setPreviewPhysicianId((current) => current || selectedIds[0] || "");
       } catch {
         setError("Unable to load physicians.");

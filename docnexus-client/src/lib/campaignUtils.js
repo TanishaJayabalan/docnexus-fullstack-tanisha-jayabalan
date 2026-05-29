@@ -41,13 +41,43 @@ export function getCampaignMetrics(campaign) {
 }
 
 export function buildCampaignChartData(campaign) {
-  const seed = hashString(campaign?.id || campaign?.name || "");
-  return Array.from({ length: 7 }).map((_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    return {
-      date: new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date),
-      sent: 12 + ((seed + index * 19) % 89),
-    };
+  if (!campaign || !campaign.enrolledPhysicians) return [];
+
+  const physicians = campaign.enrolledPhysicians;
+  const mockActivityVolumes = [25, 45, 65, 85, 15, 35, 55];
+
+  // 1. Use an object map to bundle matching dates together
+  const dateGroups = {};
+
+  physicians.forEach((physician, index) => {
+    const randomSeed = Math.sin(index + 1) * 10000;
+    const randomDays = Math.floor((randomSeed - Math.floor(randomSeed)) * 14) + 1;
+
+    const randomFutureDate = new Date(
+      new Date(campaign.createdAt).getTime() + randomDays * 86400000
+    );
+
+    // Format the date to use as our unique key (e.g., "Jun 1")
+    const formattedDate = randomFutureDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
+    const volume = mockActivityVolumes[index % mockActivityVolumes.length];
+
+    if (dateGroups[formattedDate]) {
+      // If the date already exists, add the volume to it (or keep it separate depending on preference)
+      dateGroups[formattedDate].sent += volume;
+    } else {
+      // Otherwise, create a new record
+      dateGroups[formattedDate] = {
+        timestamp: randomFutureDate.getTime(),
+        date: formattedDate,
+        sent: volume,
+      };
+    }
   });
+
+  // 2. Convert the map back into a sorted array for Recharts
+  return Object.values(dateGroups).sort((a, b) => a.timestamp - b.timestamp);
 }

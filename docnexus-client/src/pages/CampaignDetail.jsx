@@ -219,7 +219,23 @@ export default function CampaignDetail() {
                     <TableCell>
                       <Badge variant={physicianStatusVariant(status)}>{status}</Badge>
                     </TableCell>
-                    <TableCell>{formatDate(new Date(Date.now() - index * 86400000).toISOString())}</TableCell>
+                    <TableCell>
+                    {formatDate(
+                      (() => {
+                        // 1. Create a pseudo-random number of days (e.g., between 1 and 14 days)
+                        // We use the index or ID to ensure the random date stays consistent on re-render
+                        const randomSeed = Math.sin(index + 1) * 10000;
+                        const randomDays = Math.floor((randomSeed - Math.floor(randomSeed)) * 14) + 1;
+                        
+                        // 2. Add those random days to the creation date
+                        const randomFutureDate = new Date(
+                          new Date(campaign.createdAt).getTime() + randomDays * 86400000
+                        );
+                        
+                        return randomFutureDate.toISOString();
+                      })()
+                    )}
+                  </TableCell>
                   </TableRow>
                 );
               })
