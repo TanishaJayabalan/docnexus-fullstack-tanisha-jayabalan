@@ -1,10 +1,27 @@
 import asyncio
+import random
 from uuid import uuid4
 
 from database import db
 
+SPECIALTIES = ["Oncology", "Cardiology", "Neurology", "Pediatrics", "Orthopedics", "Dermatology", "Gastroenterology", "Psychiatry"]
+AFFILIATIONS = ["Mayo Clinic", "UCSF Medical Center", "Johns Hopkins", "Cleveland Clinic", "Mount Sinai", "Northwestern Medicine", "Mass General Brigham", "Penn Medicine", "Emory Healthcare", "Houston Methodist", "Baptist Health", "Seattle Children's", "Cedars-Sinai", "NYU Langone Health", "Baylor Scott & White"]
+STATES = ["CA", "NY", "TX", "FL", "IL", "WA", "MA", "PA", "OH", "GA", "MN", "MD", "NC", "AZ", "CO"]
+CITIES = {"CA": "San Francisco", "NY": "New York", "TX": "Houston", "FL": "Miami", "IL": "Chicago", "WA": "Seattle", "MA": "Boston", "PA": "Philadelphia", "OH": "Cleveland", "GA": "Atlanta", "MN": "Rochester", "MD": "Baltimore", "NC": "Charlotte", "AZ": "Phoenix", "CO": "Denver"}
+FIRST_NAMES = ["James", "Maria", "David", "Sarah", "Kevin", "Priya", "Omar", "Linda", "Chris", "Aisha", "Robert", "Mei", "Carlos", "Grace", "Noah", "Fatima", "Ethan", "Sofia", "Benjamin", "Isabella"]
+LAST_NAMES = ["Smith", "Johnson", "Patel", "Chen", "Williams", "Rivera", "Morgan", "Kim", "Brooks", "Haddad", "Shah", "Bennett", "Ali", "Carter", "Miller", "Torres", "Reed", "Rossi", "Adams", "King"]
+SUB_SPECIALTIES = {
+    "Oncology": ["Breast Oncology", "Hematologic Oncology", "GI Oncology", None],
+    "Cardiology": ["Interventional Cardiology", "Heart Failure", "Electrophysiology", None],
+    "Neurology": ["Movement Disorders", "Epilepsy", "Stroke Neurology", None],
+    "Pediatrics": ["Neonatology", "Pediatric Cardiology", None],
+    "Orthopedics": ["Sports Medicine", "Spine Surgery", "Joint Replacement", None],
+    "Dermatology": ["Mohs Surgery", None],
+    "Gastroenterology": ["Hepatology", None],
+    "Psychiatry": ["Child Psychiatry", "Addiction Psychiatry", None],
+}
 
-PHYSICIANS = [
+HARDCODED = [
     ("1000000001", "Jane", "Patel", "Oncology", "Breast Oncology", "Mayo Clinic", "Rochester", "MN", 2003, True, True),
     ("1000000002", "Michael", "Chen", "Cardiology", "Interventional Cardiology", "UCSF Medical Center", "San Francisco", "CA", 1998, True, True),
     ("1000000003", "Aisha", "Morgan", "Neurology", "Movement Disorders", "Johns Hopkins", "Baltimore", "MD", 2007, False, True),
@@ -31,19 +48,7 @@ PHYSICIANS = [
 
 
 def make_physician(record):
-    (
-        npi,
-        first_name,
-        last_name,
-        specialty,
-        sub_specialty,
-        affiliation,
-        city,
-        state,
-        year,
-        accepting,
-        certified,
-    ) = record
+    (npi, first_name, last_name, specialty, sub_specialty, affiliation, city, state, year, accepting, certified) = record
     return {
         "id": str(uuid4()),
         "npi": npi,
@@ -61,10 +66,38 @@ def make_physician(record):
     }
 
 
+def generate_physicians():
+    physicians = []
+    npi_counter = 1000000100
+
+    for specialty in SPECIALTIES:
+        for state in STATES:
+            for affiliation in AFFILIATIONS:
+                first = random.choice(FIRST_NAMES)
+                last = random.choice(LAST_NAMES)
+                physicians.append((
+                    str(npi_counter),
+                    first,
+                    last,
+                    specialty,
+                    random.choice(SUB_SPECIALTIES[specialty]),
+                    affiliation,
+                    CITIES[state],
+                    state,
+                    random.randint(1995, 2022),
+                    random.choice([True, False]),
+                    random.choice([True, False]),
+                ))
+                npi_counter += 1
+
+    return physicians
+
+
 async def seed():
     await db.physicians.create_index("npi", unique=True)
+    all_records = HARDCODED + generate_physicians()
     inserted = 0
-    for record in PHYSICIANS:
+    for record in all_records:
         physician = make_physician(record)
         result = await db.physicians.update_one(
             {"npi": physician["npi"]},
@@ -72,7 +105,7 @@ async def seed():
             upsert=True,
         )
         inserted += 1 if result.upserted_id else 0
-    print(f"Seed complete. Inserted {inserted} new physicians.")
+    print(f"Seed complete. Inserted {inserted} new physicians ({len(all_records)} total processed).")
 
 
 if __name__ == "__main__":
