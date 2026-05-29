@@ -15,6 +15,8 @@ async def get_physicians(
     npiYearMin: Optional[int] = None,
     npiYearMax: Optional[int] = None,
     search: Optional[str] = None,
+    page: int = 1,
+    limit: int = 12,
 ):
     filters = {}
 
@@ -36,5 +38,15 @@ async def get_physicians(
             {"lastName": {"$regex": search, "$options": "i"}},
         ]
 
-    cursor = db.physicians.find(filters, {"_id": 0}).sort("lastName", 1)
-    return await cursor.to_list(length=None)
+    total = await db.physicians.count_documents(filters)
+    skip = (page - 1) * limit
+    cursor = db.physicians.find(filters, {"_id": 0}).sort("lastName", 1).skip(skip).limit(limit)
+    data = await cursor.to_list(length=None)
+
+    return {
+        "data": data,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "totalPages": -(-total // limit),  # ceiling division
+    }

@@ -17,16 +17,10 @@ const initialFilters = {
   specialty: "",
   state: "",
   affiliation: "",
-  npiYear: "",
+  npiYearMin: "",
+  npiYearMax: "",
 };
 
-function npiYearParams(value) {
-  if (value === "before_2000") return { npiYearMax: 1999 };
-  if (value === "2000_2010") return { npiYearMin: 2000, npiYearMax: 2010 };
-  if (value === "2010_2020") return { npiYearMin: 2010, npiYearMax: 2020 };
-  if (value === "after_2020") return { npiYearMin: 2021 };
-  return {};
-}
 
 export default function PhysicianDiscovery() {
   const navigate = useNavigate();
@@ -37,6 +31,9 @@ export default function PhysicianDiscovery() {
   const [affiliations, setAffiliations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(filters.search), 300);
@@ -47,7 +44,7 @@ export default function PhysicianDiscovery() {
     async function loadAffiliations() {
       try {
         const data = await getPhysicians();
-        setAffiliations([...new Set(data.map((physician) => physician.affiliation))].sort());
+        setAffiliations([...new Set(data.data.map((physician) => physician.affiliation))].sort());
       } catch {
         setAffiliations([]);
       }
@@ -56,18 +53,27 @@ export default function PhysicianDiscovery() {
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, filters.specialty, filters.state, filters.affiliation, filters.npiYearMin, filters.npiYearMax]);
+
+  useEffect(() => {
     async function loadPhysicians() {
       setLoading(true);
       setError("");
       try {
-        const data = await getPhysicians({
+        const res = await getPhysicians({
           search: debouncedSearch,
           specialty: filters.specialty,
           state: filters.state,
           affiliation: filters.affiliation,
-          ...npiYearParams(filters.npiYear),
+          npiYearMin: filters.npiYearMin,
+          npiYearMax: filters.npiYearMax,
+          page: currentPage,
+          limit: 12,
         });
-        setPhysicians(data);
+        setPhysicians(res.data);
+        setTotalPages(res.totalPages);
+        setTotalCount(res.total);
       } catch {
         setError("Unable to load physicians. Check that the API is running.");
       } finally {
@@ -75,13 +81,13 @@ export default function PhysicianDiscovery() {
       }
     }
     loadPhysicians();
-  }, [debouncedSearch, filters.specialty, filters.state, filters.affiliation, filters.npiYear]);
+  }, [debouncedSearch, filters.specialty, filters.state, filters.affiliation, filters.npiYearMin, filters.npiYearMax, currentPage]);
 
   const selectedCount = selectedIds.size;
   const selectedLabel = useMemo(
-    () => `${physicians.length.toLocaleString()} physicians - ${selectedCount} selected`,
-    [physicians.length, selectedCount],
-  );
+  () => `${totalCount.toLocaleString()} physicians - ${selectedCount} selected`,
+  [totalCount, selectedCount],
+);
 
   function updateFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -96,6 +102,26 @@ export default function PhysicianDiscovery() {
     });
   }
 
+  function toggleSelectAll() {
+  if (physicians.every((p) => selectedIds.has(p.id))) {
+    // all selected → deselect all
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      physicians.forEach((p) => next.delete(p.id));
+      return next;
+    });
+  } else {
+    // not all selected → select all
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      physicians.forEach((p) => next.add(p.id));
+      return next;
+    });
+  }
+}
+
+const allSelected = physicians.length > 0 && physicians.every((p) => selectedIds.has(p.id));
+
   return (
     <section className="space-y-6 p-6">
       <div className="flex items-center justify-between gap-4">
@@ -103,12 +129,17 @@ export default function PhysicianDiscovery() {
           <h1 className="text-lg font-medium">Physician discovery</h1>
           <p className="text-sm text-muted-foreground">{selectedLabel}</p>
         </div>
-        <Button
-          disabled={selectedCount === 0}
-          onClick={() => navigate("/campaigns/new", { state: { selectedIds: [...selectedIds] } })}
-        >
-          Save & Add to Campaign
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={toggleSelectAll}>
+            {allSelected ? "Deselect All" : "Select All"}
+          </Button>
+          <Button
+            disabled={selectedCount === 0}
+            onClick={() => navigate("/campaigns/new", { state: { selectedIds: [...selectedIds] } })}
+          >
+            Save & Add to Campaign
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -147,13 +178,12 @@ export default function PhysicianDiscovery() {
               </SelectOption>
             ))}
           </Select>
-          <Select value={filters.npiYear} onChange={(event) => updateFilter("npiYear", event.target.value)}>
-            <SelectOption value="">All NPI years</SelectOption>
-            <SelectOption value="before_2000">Before 2000</SelectOption>
-            <SelectOption value="2000_2010">2000-2010</SelectOption>
-            <SelectOption value="2010_2020">2010-2020</SelectOption>
-            <SelectOption value="after_2020">After 2020</SelectOption>
-          </Select>
+          <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">NPI Year</span>
+          <Input type="number" placeholder="From" value={filters.npiYearMin} onChange={(e) => updateFilter("npiYearMin", e.target.value)} className="w-28" />
+          <span className="text-xs text-muted-foreground">to</span>
+          <Input type="number" placeholder="To" value={filters.npiYearMax} onChange={(e) => updateFilter("npiYearMax", e.target.value)} className="w-28" />
+          </div>
         </div>
       </div>
 
@@ -210,6 +240,29 @@ export default function PhysicianDiscovery() {
           })}
         </div>
       )}
+      {totalPages > 1 && (
+      <div className="flex items-center justify-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={currentPage === 1}
+          onClick={() => setCurrentPage((p) => p - 1)}
+        >
+          Previous
+        </Button>
+        <span className="text-sm text-muted-foreground">
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={currentPage === totalPages}
+          onClick={() => setCurrentPage((p) => p + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    )}
     </section>
   );
 }
