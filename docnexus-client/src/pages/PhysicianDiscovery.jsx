@@ -141,7 +141,11 @@ async function selectAllAcross() {
       page: 1,
       limit: 99999,
     });
-    setSelectedIds(new Set(res.data.map((p) => p.id)));
+    setSelectedIds((current) => {
+  const next = new Set(current);
+  res.data.forEach((p) => next.add(p.id));
+  return next;
+});
     setSelectAllAcrossPages(true);
   } catch {
     setError("Unable to select all physicians.");
