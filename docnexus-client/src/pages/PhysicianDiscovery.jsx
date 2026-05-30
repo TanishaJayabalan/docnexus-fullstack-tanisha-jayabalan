@@ -34,6 +34,7 @@ export default function PhysicianDiscovery() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(filters.search), 300);
@@ -54,6 +55,7 @@ export default function PhysicianDiscovery() {
 
   useEffect(() => {
     setCurrentPage(1);
+    setSelectAllAcrossPages(false);
   }, [debouncedSearch, filters.specialty, filters.state, filters.affiliation, filters.npiYearMin, filters.npiYearMax]);
 
   useEffect(() => {
@@ -102,16 +104,23 @@ export default function PhysicianDiscovery() {
     });
   }
 
-  function toggleSelectAll() {
+async function toggleSelectAll() {
+  if (selectAllAcrossPages) {
+    // deselect everything
+    setSelectedIds(new Set());
+    setSelectAllAcrossPages(false);
+    return;
+  }
+
   if (physicians.every((p) => selectedIds.has(p.id))) {
-    // all selected → deselect all
+    // current page all selected → deselect current page only
     setSelectedIds((current) => {
       const next = new Set(current);
       physicians.forEach((p) => next.delete(p.id));
       return next;
     });
   } else {
-    // not all selected → select all
+    // select current page
     setSelectedIds((current) => {
       const next = new Set(current);
       physicians.forEach((p) => next.add(p.id));
@@ -120,27 +129,55 @@ export default function PhysicianDiscovery() {
   }
 }
 
-const allSelected = physicians.length > 0 && physicians.every((p) => selectedIds.has(p.id));
+async function selectAllAcross() {
+  try {
+    const res = await getPhysicians({
+      search: debouncedSearch,
+      specialty: filters.specialty,
+      state: filters.state,
+      affiliation: filters.affiliation,
+      npiYearMin: filters.npiYearMin,
+      npiYearMax: filters.npiYearMax,
+      page: 1,
+      limit: 99999,
+    });
+    setSelectedIds(new Set(res.data.map((p) => p.id)));
+    setSelectAllAcrossPages(true);
+  } catch {
+    setError("Unable to select all physicians.");
+  }
+}
+
+const allCurrentPageSelected = physicians.length > 0 && physicians.every((p) => selectedIds.has(p.id));
 
   return (
     <section className="space-y-6 p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-medium">Physician discovery</h1>
-          <p className="text-sm text-muted-foreground">{selectedLabel}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={toggleSelectAll}>
-            {allSelected ? "Deselect All" : "Select All"}
-          </Button>
-          <Button
-            disabled={selectedCount === 0}
-            onClick={() => navigate("/campaigns/new", { state: { selectedIds: [...selectedIds] } })}
-          >
-            Save & Add to Campaign
-          </Button>
-        </div>
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <h1 className="text-lg font-medium">Physician discovery</h1>
+        <p className="text-sm text-muted-foreground">{selectedLabel}</p>
       </div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" onClick={toggleSelectAll}>
+          {selectAllAcrossPages ? "Deselect All" : allCurrentPageSelected ? "Deselect Page" : "Select Page"}
+        </Button>
+        <Button
+          disabled={selectedCount === 0}
+          onClick={() => navigate("/campaigns/new", { state: { selectedIds: [...selectedIds] } })}
+        >
+          Save & Add to Campaign
+        </Button>
+      </div>
+    </div>
+
+{allCurrentPageSelected && !selectAllAcrossPages && totalPages > 1 && (
+  <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-4 py-2 text-sm">
+    <span className="text-muted-foreground">All 12 on this page selected.</span>
+    <button className="text-indigo-500 underline-offset-2 hover:underline" onClick={selectAllAcross}>
+      Select all {totalCount.toLocaleString()} physicians
+    </button>
+  </div>
+)}
 
       <div className="space-y-4">
         <div className="relative">
