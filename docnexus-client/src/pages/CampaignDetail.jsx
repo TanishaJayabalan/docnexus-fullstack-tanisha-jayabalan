@@ -1,7 +1,6 @@
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { deleteCampaign, getCampaign, launchCampaign } from "@/api/campaigns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CAMPAIGN_TYPES } from "@/lib/constants";
 import { buildCampaignChartData, formatDate, getCampaignMetrics, statusBadgeVariant } from "@/lib/campaignUtils";
 import { cn } from "@/lib/utils";
+import { deleteCampaign, getCampaign, launchCampaign, updateCampaign } from "@/api/campaigns";
 
 const mockStatuses = ["Contacted", "Replied", "Bounced"];
 const launchSteps = [
@@ -50,6 +50,7 @@ export default function CampaignDetail() {
   const [launchMessage, setLaunchMessage] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     async function loadCampaign() {
@@ -95,6 +96,19 @@ export default function CampaignDetail() {
       setLaunching(false);
     }
   }
+
+  async function handleComplete() {
+  setCompleting(true);
+  setError("");
+  try {
+    const updated = await updateCampaign(id, { status: "completed" });
+    setCampaign(updated);
+  } catch {
+    setError("Unable to mark campaign as completed.");
+  } finally {
+    setCompleting(false);
+  }
+}
 
   async function handleDelete() {
     const confirmed = window.confirm(`Delete "${campaign.name}"? This cannot be undone.`);
@@ -150,6 +164,11 @@ export default function CampaignDetail() {
           {campaign.status === "draft" && (
             <Button disabled={launching || physicians.length === 0} onClick={handleLaunch}>
               {launching ? "Launching..." : "Launch"}
+            </Button>
+          )}
+          {campaign.status === "active" && (
+            <Button variant="secondary" disabled={completing || deleting} onClick={handleComplete}>
+              {completing ? "Completing..." : "Mark as Completed"}
             </Button>
           )}
           <Button variant="secondary" disabled={deleting || launching} onClick={handleDelete}>
