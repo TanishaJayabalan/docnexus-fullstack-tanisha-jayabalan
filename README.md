@@ -186,11 +186,12 @@ docnexus-client/
 
 ## What I Would Build Next
 
-- Authentication and role-based access control for outreach teams.
+- Authentication and role-based access control.
 - Real campaign delivery integration through an email provider such as SendGrid, Postmark, or SES.
-- Event tracking for sent, opened, replied, bounced, unsubscribed, and booked statuses.
 - Persistent campaign analytics instead of mocked dashboard metrics.
 - Physician import/export workflows with CSV validation.
 - AI prompt versioning, regeneration history, and approval workflows for compliance review.
-- Tests for FastAPI routers, API clients, and core React flows.
 - Deployment configuration for a hosted frontend, backend service, and managed MongoDB Atlas environment.
+
+## Demo Video
+https://youtu.be/RwUeLuejYyg
